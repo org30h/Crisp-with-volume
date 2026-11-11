@@ -1,0 +1,118 @@
+name: Sync upstream
+
+# Merges didriksg/Crisp main into this fork's default branch every 6 hours, and
+# mirrors it to this fork's main. A conflict or a failed push opens one issue
+# labeled upstream-sync and assigned to the repo owner. The next clean sync
+# closes it.
+on:
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: ${{ github.event.repository.default_branch }}
+      UPSTREAM: https://github.com/didriksg/Crisp.git
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          # GITHUB_TOKEN cannot push commits that change .github/workflows, and
+          # upstream edits its CI now and then. A SYNC_TOKEN secret (fine-grained
+          # token on this repo with Contents and Workflows read/write) can.
+          token: ${{ secrets.SYNC_TOKEN || github.token }}
+
+      - name: Merge upstream main
+        id: merge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "$UPSTREAM"
+          git fetch --no-tags upstream main
+          echo "upstream_sha=$(git rev-parse --short upstream/main)" >> "$GITHUB_OUTPUT"
+          if git merge --no-edit upstream/main; then
+            echo "result=merged" >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "result=conflict"
+              echo "files<<EOF"
+              git diff --name-only --diff-filter=U
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            git merge --abort
+          fi
+
+      - name: Push
+        if: steps.merge.outputs.result == 'merged'
+        run: |
+          git push origin "refs/remotes/upstream/main:refs/heads/main"
+          git push origin "HEAD:refs/heads/$BRANCH"
+
+      - name: Open or update the sync issue
+        if: always() && (steps.merge.outputs.result == 'conflict' || failure())
+        env:
+          FILES: ${{ steps.merge.outputs.files }}
+          UPSTREAM_SHA: ${{ steps.merge.outputs.upstream_sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -n "$FILES" ]; then
+            files_list=$(printf '%s\n' "$FILES" | sed 's/^/- `/; s/$/`/')
+            reason="Merging upstream main (\`$UPSTREAM_SHA\`) into \`$BRANCH\` hit a conflict in:"$'\n\n'"$files_list"
+          else
+            reason="The sync failed before or during the push. If the log says the token can't update workflows, add a SYNC_TOKEN secret (see the comment in .github/workflows/sync-upstream.yml)."
+          fi
+          body="$reason
+
+          Run: $RUN_URL
+
+          Fix it locally:
+
+          \`\`\`sh
+          git fetch upstream
+          git switch $BRANCH
+          git pull
+          git merge upstream/main
+          # resolve the conflicts, then
+          git add <files>
+          git commit --no-edit
+          git push
+          \`\`\`
+
+          The next scheduled sync closes this issue once the merge is clean."
+
+          gh label create upstream-sync --color D93F0B \
+            --description "Upstream merge needs a manual fix" --force
+          num=$(gh issue list --label upstream-sync --state open --json number --jq '.[0].number // empty')
+          if [ -n "$num" ]; then
+            # Edit instead of comment, so an unresolved conflict doesn't notify every 6 hours.
+            gh issue edit "$num" --body "$body"
+          else
+            gh issue create --title "Upstream sync needs a manual merge" \
+              --label upstream-sync --assignee "$GITHUB_REPOSITORY_OWNER" --body "$body"
+          fi
+
+      - name: Close the sync issue
+        if: success() && steps.merge.outputs.result == 'merged'
+        env:
+          UPSTREAM_SHA: ${{ steps.merge.outputs.upstream_sha }}
+        run: |
+          num=$(gh issue list --label upstream-sync --state open --json number --jq '.[0].number // empty')
+          if [ -n "$num" ]; then
+            gh issue close "$num" --comment "Merged upstream main (\`$UPSTREAM_SHA\`) cleanly."
+          fi
+
+      - name: Fail the run on a conflict
+        if: steps.merge.outputs.result == 'conflict'
+        run: exit 1
