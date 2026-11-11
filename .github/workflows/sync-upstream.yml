@@ -1,7 +1,7 @@
 name: Sync upstream
 
-# Merges didriksg/Crisp main into this fork's default branch every 6 hours, and
-# mirrors it to this fork's main. A conflict or a failed push opens one issue
+# Merges didriksg/Crisp main into this fork's default branch every 6 hours.
+# A conflict or a failed push opens one issue
 # labeled upstream-sync and assigned to the repo owner. The next clean sync
 # closes it.
 on:
@@ -57,10 +57,6 @@ jobs:
       - name: Push
         if: steps.merge.outputs.result == 'merged'
         run: |
-          # main is a pure mirror of upstream. Skip it if this file ever runs from main.
-          if [ "$BRANCH" != main ]; then
-            git push origin "refs/remotes/upstream/main:refs/heads/main"
-          fi
           git push origin "HEAD:refs/heads/$BRANCH"
 
       - name: Open or update the sync issue
