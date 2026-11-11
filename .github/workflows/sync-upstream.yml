@@ -57,7 +57,10 @@ jobs:
       - name: Push
         if: steps.merge.outputs.result == 'merged'
         run: |
-          git push origin "refs/remotes/upstream/main:refs/heads/main"
+          # main is a pure mirror of upstream. Skip it if this file ever runs from main.
+          if [ "$BRANCH" != main ]; then
+            git push origin "refs/remotes/upstream/main:refs/heads/main"
+          fi
           git push origin "HEAD:refs/heads/$BRANCH"
 
       - name: Open or update the sync issue
