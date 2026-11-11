@@ -333,6 +333,22 @@
         }
       }
     },
+    "Evens out loud and quiet parts on this monitor's speakers. Audio is processed on this Mac only." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "均衡此显示器扬声器的大声和小声部分。音频仅在这台 Mac 上处理。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "均衡此顯示器喇叭的大聲和小聲部分。音訊僅在這台 Mac 上處理。"
+          }
+        }
+      }
+    },
     "Input" : {
       "localizations" : {
         "zh-Hans" : {
@@ -361,6 +377,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "輸入來源 %@"
+          }
+        }
+      }
+    },
+    "Normalize Loudness" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "响度均衡"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "響度均衡"
+          }
+        }
+      }
+    },
+    "No sound is reaching Crisp. Allow Crisp under System Settings > Privacy & Security > Screen & System Audio Recording > System Audio Recording Only." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crisp 没有收到声音。请在“系统设置”>“隐私与安全性”>“屏幕与系统音频录制”>“仅系统音频录制”中允许 Crisp。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crisp 沒有收到聲音。請在「系統設定」>「隱私權與安全性」>「螢幕與系統音訊錄製」>「僅系統音訊錄製」中允許 Crisp。"
           }
         }
       }
@@ -4442,6 +4490,134 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "黃色"
+          }
+        }
+      }
+    },
+    "Maximum Volume" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最大音量"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最大音量"
+          }
+        }
+      }
+    },
+    "No Limit" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无限制"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無限制"
+          }
+        }
+      }
+    },
+    "Current Level (%lld%%)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前音量（%lld%%）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目前音量（%lld%%）"
+          }
+        }
+      }
+    },
+    "Volume limited to %lld%%" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音量上限为 %lld%%"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音量上限為 %lld%%"
+          }
+        }
+      }
+    },
+    "Custom (%lld%%)…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义（%lld%%）…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自訂（%lld%%）…"
+          }
+        }
+      }
+    },
+    "The highest volume Crisp may set on this display, as a percent of its full volume (1 to 100)." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crisp 在此显示器上可设置的最高音量，以其最大音量的百分比表示（1 到 100）。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crisp 在此顯示器上可設定的最高音量，以其最大音量的百分比表示（1 到 100）。"
+          }
+        }
+      }
+    },
+    "Set Limit" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置上限"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定上限"
+          }
+        }
+      }
+    },
+    "Enter a whole number from 1 to 100." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入 1 到 100 之间的整数。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請輸入 1 到 100 之間的整數。"
           }
         }
       }

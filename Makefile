@@ -32,7 +32,7 @@ endif
 
 # swiftc invocation kept in sync with dev.sh's compile step.
 SWIFT_SOURCES := Crisp/App/*.swift Crisp/Models/*.swift Crisp/Services/*.swift \
-                 Crisp/Views/*.swift Crisp/Utilities/*.swift
+                 Crisp/Views/*.swift Crisp/Utilities/*.swift Crisp/Audio/*.swift
 SWIFTC_FLAGS := -O -swift-version 6 -parse-as-library \
                 -import-objc-header Crisp/Crisp-Bridging-Header.h \
                 -framework AppKit -framework SwiftUI -framework IOKit -framework CoreAudio \

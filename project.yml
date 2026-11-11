@@ -34,6 +34,7 @@ targets:
         INFOPLIST_KEY_LSUIElement: true
         INFOPLIST_KEY_NSHumanReadableCopyright: "Crisp - Free & Open Source"
         INFOPLIST_KEY_NSAppleEventsUsageDescription: "Crisp uses System Events to switch Dark Mode with the system's animated transition."
+        INFOPLIST_KEY_NSAudioCaptureUsageDescription: "Crisp evens out loudness on the speakers of your monitor. Audio is processed on this Mac and never recorded or sent anywhere."
         SWIFT_VERSION: "6.0"
         CODE_SIGN_ENTITLEMENTS: Crisp/Crisp.entitlements
         ENABLE_HARDENED_RUNTIME: YES
@@ -86,8 +87,10 @@ targets:
       - path: Crisp/Models/BrightnessKeySteps.swift
       - path: Crisp/Models/ScreenCount.swift
       - path: Crisp/Models/DDCVolumeMax.swift
+      - path: Crisp/Models/VolumeLimit.swift
       - path: Crisp/Models/EdgeCrossing.swift
       - path: Crisp/Models/DDCInputSource.swift
+      - path: Crisp/Models/LoudnessLeveler.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.crisp.tests

@@ -66,6 +66,48 @@ final class VolumeService: ObservableObject {
         preMuteVolume.removeValue(forKey: displayID)
     }
 
+    // MARK: - Maximum volume
+
+    /// Per-display maximum volume (percent of the monitor's hardware range), keyed
+    /// by display UUID. Absent means no limit. Published so the slider row's
+    /// tooltip and menu follow changes.
+    private static let limitPrefix = "crisp.volumeLimit.uuid."
+    @Published private var limits: [String: Double] = {
+        var found: [String: Double] = [:]
+        for (key, value) in UserDefaults.standard.dictionaryRepresentation() where key.hasPrefix(limitPrefix) {
+            if let limit = VolumeLimit.clamped(value as? Double) {
+                found[String(key.dropFirst(limitPrefix.count))] = limit
+            }
+        }
+        return found
+    }()
+
+    func volumeLimit(for display: DisplayInfo) -> Double? {
+        limits[display.displayUUID]
+    }
+
+    /// Sets or removes (nil) the limit. A hardware level at or below the new limit
+    /// is kept, with no DDC write. A level above it is lowered to the limit.
+    func setVolumeLimit(_ limit: Double?, for display: DisplayInfo) {
+        let hardware = VolumeLimit.hardware(fromUser: display.volume, limit: volumeLimit(for: display))
+        let new = VolumeLimit.clamped(limit)
+        let key = Self.limitPrefix + display.displayUUID
+        if let new {
+            limits[display.displayUUID] = new
+            UserDefaults.standard.set(new, forKey: key)
+        } else {
+            limits.removeValue(forKey: display.displayUUID)
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        // The remembered pre-mute level is on the old scale.
+        preMuteVolume.removeValue(forKey: display.displayID)
+        if let new, hardware > new {
+            setVolume(100, for: display)
+        } else {
+            display.volume = VolumeLimit.user(fromHardware: hardware, limit: new)
+        }
+    }
+
     // MARK: - Probe
 
     /// Reads VCP 0x62 once: success marks the display volume-capable and
@@ -101,7 +143,14 @@ final class VolumeService: ObservableObject {
                 // Adopt the hardware level only while our writer is idle, so a
                 // stale cached read never fights an in-flight drag.
                 if self.pending[id] == nil, !self.pumpActive.contains(id) {
-                    display.volume = Double(result.current) / Double(volumeMax) * 100.0
+                    let limit = self.volumeLimit(for: display)
+                    if VolumeLimit.exceeds(raw: result.current, ddcMax: volumeMax, limit: limit) {
+                        // The monitor's own buttons went past the limit: write it back once.
+                        self.setVolume(100, for: display)
+                    } else {
+                        display.volume = VolumeLimit.user(
+                            fromHardware: Double(result.current) / Double(volumeMax) * 100.0, limit: limit)
+                    }
                 }
             }
         }
@@ -113,13 +162,13 @@ final class VolumeService: ObservableObject {
     private var pending: [CGDirectDisplayID: Double] = [:]
     private var pumpActive: Set<CGDirectDisplayID> = []
 
-    /// Sets speaker volume (0–100). Coalesced like the brightness writer:
+    /// Sets speaker volume (0–100, percent of the display's allowed range). Coalesced like the brightness writer:
     /// latest value wins, writes paced to the MCCS ~50ms spacing so slider
     /// drags don't flood the I2C bus that brightness shares.
     func setVolume(_ percent: Double, for display: DisplayInfo) {
         let clamped = max(0.0, min(100.0, percent))
         display.volume = clamped
-        pending[display.displayID] = clamped
+        pending[display.displayID] = VolumeLimit.hardware(fromUser: clamped, limit: volumeLimit(for: display))
         pump(for: display.displayID)
     }
 

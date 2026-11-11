@@ -95,6 +95,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             Self.log.error("Could not start local control socket: \(error.localizedDescription, privacy: .public)")
         }
 
+        // Restores loudness normalization for displays that have it enabled; no-op before macOS 14.2.
+        if #available(macOS 14.2, *) {
+            LoudnessNormalizationService.shared.start()
+        }
+
         // Route brightness keys to the display under the cursor, but only if
         // Accessibility is already granted: creating the tap surfaces the OS
         // prompt. New users opt in via the Brightness Keys toggle. (jv1b)

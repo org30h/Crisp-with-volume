@@ -47,7 +47,7 @@ echo "==> Compiling Crisp $VERSION ($BUILD)..."
     -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
     -Xlinker -undefined -Xlinker dynamic_lookup \
     Crisp/App/*.swift Crisp/Models/*.swift Crisp/Services/*.swift \
-    Crisp/Views/*.swift Crisp/Utilities/*.swift \
+    Crisp/Views/*.swift Crisp/Utilities/*.swift Crisp/Audio/*.swift \
     -o Crisp-bin
 
 # Same sources as release.sh, so the app and its crispctl come from one branch.
@@ -86,6 +86,9 @@ rm -rf "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices" \
 # since the binary swap doesn't regenerate Info.plist.
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" "$APP/Contents/Info.plist"
+# Loudness normalization taps system audio; the OS only shows its prompt when this key exists.
+/usr/libexec/PlistBuddy -c "Delete :NSAudioCaptureUsageDescription" "$APP/Contents/Info.plist" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Add :NSAudioCaptureUsageDescription string Crisp evens out loudness on the speakers of your monitor. Audio is processed on this Mac and never recorded or sent anywhere." "$APP/Contents/Info.plist"
 # Sparkle keys, absent when swapping into a pre-Sparkle install: without them
 # the updater logs errors and prompts for check permission on second launch.
 PLIST="$APP/Contents/Info.plist"

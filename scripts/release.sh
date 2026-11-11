@@ -130,6 +130,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 	<key>LSUIElement</key><true/>
 	<key>NSHumanReadableCopyright</key><string>Crisp - Free &amp; Open Source</string>
 	<key>NSAppleEventsUsageDescription</key><string>Crisp uses System Events to switch Dark Mode with the system's animated transition.</string>
+	<key>NSAudioCaptureUsageDescription</key><string>Crisp evens out loudness on the speakers of your monitor. Audio is processed on this Mac and never recorded or sent anywhere.</string>
 	<key>SUFeedURL</key><string>https://crispmac.app/appcast.xml</string>
 	<key>SUPublicEDKey</key><string>3UT7wZoXDzrAhwCMVS3DoPt2lcya9H/cvlyXliuPuhM=</string>
 	<key>SUEnableAutomaticChecks</key><true/>
