@@ -37,6 +37,7 @@ final class CoreBrightnessService: ObservableObject {
 
     private var blueLightClient: NSObject?
     private var trueToneClient: NSObject?
+    private var presetTrigger = NightShiftPresetTrigger()
     private(set) var nightShiftTemperature: NightShiftTemperatureController?
 
     private init() {
@@ -122,7 +123,10 @@ final class CoreBrightnessService: ObservableObject {
             }
             let dark = _SLSGetAppearanceTheme?()
             DispatchQueue.main.async {
-                if let nightShift { self.nightShiftEnabled = nightShift }
+                if let nightShift {
+                    self.nightShiftEnabled = nightShift
+                    self.noteNightShift(nightShift)
+                }
                 if self.trueToneAvailable != ttAvailable { self.trueToneAvailable = ttAvailable }
                 if let trueTone { self.trueToneEnabled = trueTone }
                 // Don't clobber an optimistic toggle while the async theme
@@ -167,6 +171,20 @@ final class CoreBrightnessService: ObservableObject {
         guard let c = blueLightClient else { return }
         Self.setBoolCall(c, "setEnabled:", on)
         nightShiftEnabled = on
+        noteNightShift(on)
+    }
+
+    /// Applies the preset chosen for this Night Shift state, if it just changed (schedule,
+    /// Control Center, System Settings or Crisp's own toggle all land here). The first
+    /// state seen is only recorded, so launching with Night Shift on applies nothing.
+    private func noteNightShift(_ enabled: Bool) {
+        let settings = SettingsService.shared
+        let presets = PresetService.shared.presets
+        guard let id = presetTrigger.presetToApply(
+            enabled: enabled, onPreset: settings.nightShiftOnPresetID,
+            offPreset: settings.nightShiftOffPresetID, existing: Set(presets.map(\.id))),
+            let preset = presets.first(where: { $0.id == id }) else { return }
+        Task { await PresetService.shared.applyPreset(preset) }
     }
 
     func setTrueTone(_ on: Bool) {

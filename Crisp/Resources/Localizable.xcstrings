@@ -413,6 +413,22 @@
         }
       }
     },
+    "None" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無"
+          }
+        }
+      }
+    },
     "Normalize Loudness" : {
       "localizations" : {
         "zh-Hans" : {
@@ -585,6 +601,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "連接外接顯示器時關閉內建顯示器"
+          }
+        }
+      }
+    },
+    "When Night Shift turns off" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "夜览关闭时"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "夜覽關閉時"
+          }
+        }
+      }
+    },
+    "When Night Shift turns on" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "夜览开启时"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "夜覽開啟時"
           }
         }
       }

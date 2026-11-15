@@ -656,6 +656,10 @@ struct SettingsView: View {
                 .padding(.vertical, 3)
             }
 
+            if CoreBrightnessService.shared.nightShiftAvailable {
+                NightShiftPresetPickers()
+            }
+
             // Which displays the hardware brightness keys adjust (checkmark-list idiom, only
             // once Accessibility is granted, or the target subtitle would read as live before
             // it is). (jv1b)
