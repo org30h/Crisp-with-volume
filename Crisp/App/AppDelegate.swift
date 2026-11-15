@@ -679,6 +679,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             || CoreBrightnessService.shared.trueToneAvailable {
             blocks.append(block("effects") { ScreenEffectsView() })
         }
+        blocks += nightShiftTemperatureBlocks()
         blocks.append(block("presets") {
             VStack(alignment: .leading, spacing: 0) {
                 SectionDivider()
@@ -761,8 +762,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         ) { [weak self] _ in
             Task { @MainActor in self?.canvas.refreshAppearance() }
         }
+        // Each publisher replays its current value on subscribe, hence dropFirst(2).
         SettingsService.shared.$showCombinedBrightness
-            .dropFirst()
+            .merge(with: SettingsService.shared.$showNightShiftTemperature)
+            .dropFirst(2)
             .sink { [weak self] _ in self?.canvas.requestApply() }
             .store(in: &canvasCancellables)
         displayManager.$displays
@@ -1014,6 +1017,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 // MARK: - Panel window
 
 extension AppDelegate {
+    /// The Night Shift warmth slider; empty when CoreBrightness exposes no strength.
+    private func nightShiftTemperatureBlocks() -> [PanelBlock] {
+        guard let temperature = CoreBrightnessService.shared.nightShiftTemperature else { return [] }
+        let id = "nightShiftTemperature"
+        return [PanelBlock(id: id, host: hostPanelBlock(id) { NightShiftTemperatureView(temperature: temperature) },
+                           isOpen: { SettingsService.shared.showNightShiftTemperature })]
+    }
+
     private func hostPanelBlock<V: View>(_ id: String, @ViewBuilder _ content: () -> V) -> NSView {
         let h = CountedHostingView(rootView: AnyView(
             BlockHost(onHeight: { [weak self] h in self?.canvas.contentChanged(id, height: h) }) {

@@ -617,6 +617,26 @@ struct SettingsView: View {
                 .padding(.vertical, 3)
             }
 
+            if CoreBrightnessService.shared.nightShiftTemperature != nil {
+                Toggle(isOn: Binding(
+                    get: { settings.showNightShiftTemperature },
+                    set: { newValue in withAnimation(.panelResize) { settings.showNightShiftTemperature = newValue } }
+                )) {
+                    HStack(spacing: 8) {
+                        MenuItemIcon(systemName: "thermometer.medium", color: .orange,
+                                     active: settings.showNightShiftTemperature)
+                            .accessibilityHidden(true)
+                        Text("Show Night Shift Temperature")
+                            .font(.body)
+                        Spacer()
+                    }
+                }
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 3)
+            }
+
             if PhysicalDisplayToggleService.shared.isSupported {
                 Toggle(isOn: Binding(
                     get: { settings.showConnectionSwitches },

@@ -58,6 +58,7 @@ final class SettingsService: ObservableObject, @unchecked Sendable {
         static let showConnectionSwitches = "crisp.showConnectionSwitches"
         static let crossDisplayGaps       = "crisp.crossDisplayGaps"
         static let disconnectBuiltinWhenDocked = "crisp.disconnectBuiltinWhenDocked"
+        static let showNightShiftTemperature = "crisp.showNightShiftTemperature"
         static let ddcCacheTTL            = "crisp.ddcCacheTTL"
         static let colorPickerHistory     = "crisp.colorPickerHistory"
         static let brightnessKeyTarget    = "crisp.brightnessKeyTarget"
@@ -127,6 +128,11 @@ final class SettingsService: ObservableObject, @unchecked Sendable {
 
     @Published var ddcCacheTTL: Double = 5.0 {
         didSet { defaults.set(ddcCacheTTL, forKey: Keys.ddcCacheTTL) }
+    }
+
+    /// Visibility only; the temperature itself belongs to macOS Night Shift.
+    @Published var showNightShiftTemperature: Bool = false {
+        didSet { defaults.set(showNightShiftTemperature, forKey: Keys.showNightShiftTemperature) }
     }
 
     /// Recently sampled colors (hex strings, newest first, max 20).
@@ -304,6 +310,7 @@ final class SettingsService: ObservableObject, @unchecked Sendable {
         showConnectionSwitches = defaults.bool(forKey: Keys.showConnectionSwitches)
         crossDisplayGaps = defaults.bool(forKey: Keys.crossDisplayGaps)
         disconnectBuiltinWhenDocked = defaults.bool(forKey: Keys.disconnectBuiltinWhenDocked)
+        showNightShiftTemperature = defaults.bool(forKey: Keys.showNightShiftTemperature)
         ddcCacheTTL = defaults.object(forKey: Keys.ddcCacheTTL) != nil
             ? defaults.double(forKey: Keys.ddcCacheTTL) : 5.0
         colorPickerHistory = defaults.stringArray(forKey: Keys.colorPickerHistory) ?? []

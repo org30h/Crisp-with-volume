@@ -93,6 +93,7 @@ targets:
       - path: Crisp/Models/LoudnessLeveler.swift
       - path: Crisp/Models/CombinedVolume.swift
       - path: Crisp/Models/GainRamp.swift
+      - path: Crisp/Models/NightShiftTemperatureController.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.crisp.tests
