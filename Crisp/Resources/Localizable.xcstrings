@@ -2591,22 +2591,6 @@
         }
       }
     },
-    "Less Warm" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "较冷"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "較冷"
-          }
-        }
-      }
-    },
     "Links crispctl into /usr/local/bin" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2701,22 +2685,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "更多空間"
-          }
-        }
-      }
-    },
-    "More Warm" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "较暖"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "較暖"
           }
         }
       }
