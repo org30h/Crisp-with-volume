@@ -762,10 +762,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         ) { [weak self] _ in
             Task { @MainActor in self?.canvas.refreshAppearance() }
         }
-        // Each publisher replays its current value on subscribe, hence dropFirst(2).
+        // Each publisher replays its current value on subscribe, hence dropFirst(3).
+        // Night Shift on/off shows or hides the warmth slider.
         SettingsService.shared.$showCombinedBrightness
-            .merge(with: SettingsService.shared.$showNightShiftTemperature)
-            .dropFirst(2)
+            .merge(with: SettingsService.shared.$showNightShiftTemperature,
+                   CoreBrightnessService.shared.$nightShiftEnabled.removeDuplicates())
+            .dropFirst(3)
             .sink { [weak self] _ in self?.canvas.requestApply() }
             .store(in: &canvasCancellables)
         displayManager.$displays
@@ -1018,11 +1020,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
 extension AppDelegate {
     /// The Night Shift warmth slider; empty when CoreBrightness exposes no strength.
+    /// Shown only while the setting is on and Night Shift is on.
     private func nightShiftTemperatureBlocks() -> [PanelBlock] {
         guard let temperature = CoreBrightnessService.shared.nightShiftTemperature else { return [] }
         let id = "nightShiftTemperature"
         return [PanelBlock(id: id, host: hostPanelBlock(id) { NightShiftTemperatureView(temperature: temperature) },
-                           isOpen: { SettingsService.shared.showNightShiftTemperature })]
+                           isOpen: {
+                               SettingsService.shared.showNightShiftTemperature
+                                   && CoreBrightnessService.shared.nightShiftEnabled
+                           })]
     }
 
     private func hostPanelBlock<V: View>(_ id: String, @ViewBuilder _ content: () -> V) -> NSView {

@@ -3,32 +3,28 @@ import SwiftUI
 /// One global Night Shift control, below the system effects and above Presets.
 struct NightShiftTemperatureView: View {
     @ObservedObject var temperature: NightShiftTemperatureController
-    @ObservedObject private var effects = CoreBrightnessService.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Night Shift Temperature")
-                .font(.callout)
-            Slider(value: Binding(
-                get: { temperature.strength ?? 0 },
-                set: { value in Task { await temperature.setStrength(value) } }
-            ), in: 0...1) { editing in
-                temperature.setEditing(editing)
-                if !editing { Task { await temperature.refresh() } }
-            }
-            .controlSize(.small)
+        // One row: the Night Shift glyph, then a bar shaded light to deep orange, so
+        // neither a title nor "less/more warm" captions are needed.
+        HStack(spacing: 8) {
+            EffectGlyphView(glyph: .nightShift, color: .secondary)
+                .scaleEffect(0.85)
+                .accessibilityHidden(true)
+            WarmthSlider(
+                value: temperature.strength,
+                onChange: { value in Task { await temperature.setStrength(value) } },
+                onEditingChanged: { editing in
+                    temperature.setEditing(editing)
+                    if !editing { Task { await temperature.refresh() } }
+                }
+            )
             .accessibilityLabel("Night Shift Temperature")
-            HStack {
-                Text("Less Warm")
-                Spacer()
-                Text("More Warm")
-            }
-            .font(.caption)
-            .foregroundColor(.secondary)
         }
-        .disabled(!effects.nightShiftEnabled || temperature.strength == nil)
+        .help("Night Shift Temperature")
+        .disabled(temperature.strength == nil)
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
         .onReceive(NotificationCenter.default.publisher(for: .crispPanelDidClose)) { _ in
             temperature.setEditing(false)
             Task { await temperature.refresh() }

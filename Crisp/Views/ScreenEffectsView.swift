@@ -111,7 +111,7 @@ private struct EffectCircleButton: View {
 
 enum EffectGlyph { case darkMode, nightShift, trueTone }
 
-private struct EffectGlyphView: View {
+struct EffectGlyphView: View {
     let glyph: EffectGlyph
     let color: Color
 
