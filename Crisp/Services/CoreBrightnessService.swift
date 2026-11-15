@@ -27,6 +27,8 @@ final class CoreBrightnessService: ObservableObject {
     static let shared = CoreBrightnessService()
 
     @Published var nightShiftEnabled = false
+    /// The system Night Shift schedule, nil until first read.
+    @Published private(set) var nightShiftSchedule: NightShiftSchedule?
     @Published var trueToneEnabled = false
     @Published var darkModeEnabled = false
     private(set) var nightShiftAvailable = false
@@ -101,17 +103,10 @@ final class CoreBrightnessService: ObservableObject {
         let ttBox = UncheckedSendable(value: trueToneClient)
         DispatchQueue.global(qos: .userInitiated).async {
             var nightShift: Bool?
-            if let c = blueBox.value {
-                var buf = [UInt8](repeating: 0, count: 64)
-                let sel = NSSelectorFromString("getBlueLightStatus:")
-                if c.responds(to: sel) {
-                    typealias Fn = @convention(c) (NSObject, Selector, UnsafeMutableRawPointer) -> Bool
-                    let ok = buf.withUnsafeMutableBytes {
-                        unsafeBitCast(c.method(for: sel), to: Fn.self)(c, sel, $0.baseAddress!)
-                    }
-                    // Status struct layout {BOOL active, BOOL enabled, ...}, enabled is at offset 1
-                    if ok { nightShift = buf[1] != 0 }
-                }
+            var schedule: NightShiftSchedule?
+            if let c = blueBox.value, let status = Self.readBlueLightStatus(c) {
+                nightShift = status.enabled
+                schedule = status.schedule
             }
             var trueTone: Bool?
             var ttAvailable = false
@@ -127,6 +122,7 @@ final class CoreBrightnessService: ObservableObject {
                     self.nightShiftEnabled = nightShift
                     self.noteNightShift(nightShift)
                 }
+                if let schedule, self.nightShiftSchedule != schedule { self.nightShiftSchedule = schedule }
                 if self.trueToneAvailable != ttAvailable { self.trueToneAvailable = ttAvailable }
                 if let trueTone { self.trueToneEnabled = trueTone }
                 // Don't clobber an optimistic toggle while the async theme
@@ -174,6 +170,41 @@ final class CoreBrightnessService: ObservableObject {
         noteNightShift(on)
     }
 
+    /// Sets how Night Shift is scheduled (the same setting as System Settings > Displays >
+    /// Night Shift). The new mode shows at once and refresh() then confirms what the system holds.
+    func setNightShiftMode(_ mode: NightShiftScheduleMode) {
+        guard let c = blueLightClient else { return }
+        nightShiftSchedule?.mode = mode
+        let box = UncheckedSendable(value: c)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let sel = NSSelectorFromString("setMode:")
+            if box.value.responds(to: sel) {
+                typealias Fn = @convention(c) (NSObject, Selector, Int32) -> Bool
+                _ = unsafeBitCast(box.value.method(for: sel), to: Fn.self)(box.value, sel, mode.rawValue)
+            }
+            DispatchQueue.main.async { self.refresh() }
+        }
+    }
+
+    /// Sets the custom Night Shift window. Only meaningful in Custom mode.
+    func setNightShiftSchedule(from: NightShiftTime, to: NightShiftTime) {
+        guard let c = blueLightClient else { return }
+        nightShiftSchedule?.from = from
+        nightShiftSchedule?.to = to
+        let box = UncheckedSendable(value: c)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let sel = NSSelectorFromString("setSchedule:")
+            if box.value.responds(to: sel) {
+                var schedule = BlueLightSchedule(from: BlueLightTime(from), to: BlueLightTime(to))
+                typealias Fn = @convention(c) (NSObject, Selector, UnsafeMutableRawPointer) -> Bool
+                _ = withUnsafeMutablePointer(to: &schedule) {
+                    unsafeBitCast(box.value.method(for: sel), to: Fn.self)(box.value, sel, UnsafeMutableRawPointer($0))
+                }
+            }
+            DispatchQueue.main.async { self.refresh() }
+        }
+    }
+
     /// Applies the preset chosen for this Night Shift state, if it just changed (schedule,
     /// Control Center, System Settings or Crisp's own toggle all land here). The first
     /// state seen is only recorded, so launching with Night Shift on applies nothing.
@@ -211,6 +242,26 @@ final class CoreBrightnessService: ObservableObject {
 
     // MARK: - ObjC runtime call helpers
 
+    /// Reads `getBlueLightStatus:` into the typed C struct. The struct sits in a larger zeroed
+    /// buffer so a longer layout on a newer macOS cannot write past it.
+    private nonisolated static func readBlueLightStatus(_ c: NSObject) -> (enabled: Bool, schedule: NightShiftSchedule)? {
+        let sel = NSSelectorFromString("getBlueLightStatus:")
+        guard c.responds(to: sel) else { return nil }
+        let size = max(64, MemoryLayout<BlueLightStatus>.size)
+        let raw = UnsafeMutableRawPointer.allocate(byteCount: size, alignment: 16)
+        defer { raw.deallocate() }
+        raw.initializeMemory(as: UInt8.self, repeating: 0, count: size)
+        typealias Fn = @convention(c) (NSObject, Selector, UnsafeMutableRawPointer) -> Bool
+        guard unsafeBitCast(c.method(for: sel), to: Fn.self)(c, sel, raw) else { return nil }
+        let status = raw.load(as: BlueLightStatus.self)
+        let schedule = NightShiftSchedule(
+            mode: NightShiftScheduleMode(systemValue: status.mode),
+            from: NightShiftTime(hour: Int(status.from.hour), minute: Int(status.from.minute)),
+            to: NightShiftTime(hour: Int(status.to.hour), minute: Int(status.to.minute)),
+            sunSchedulePermitted: status.sunSchedulePermitted)
+        return (status.enabled, schedule)
+    }
+
     private nonisolated static func boolCall(_ obj: NSObject, _ name: String) -> Bool {
         let sel = NSSelectorFromString(name)
         guard obj.responds(to: sel) else { return false }
@@ -224,6 +275,38 @@ final class CoreBrightnessService: ObservableObject {
         typealias Fn = @convention(c) (NSObject, Selector, Bool) -> Void
         unsafeBitCast(obj.method(for: sel), to: Fn.self)(obj, sel, v)
     }
+}
+
+/// CoreBrightness `Time`, `Schedule` and `Status` C structs, as `getBlueLightStatus:` fills them
+/// (field order and natural alignment checked against a live read).
+private struct BlueLightTime {
+    var hour: Int32
+    var minute: Int32
+
+    init(hour: Int32, minute: Int32) {
+        self.hour = hour
+        self.minute = minute
+    }
+
+    init(_ time: NightShiftTime) {
+        self.init(hour: Int32(time.hour), minute: Int32(time.minute))
+    }
+}
+
+private struct BlueLightSchedule {
+    var from: BlueLightTime
+    var to: BlueLightTime
+}
+
+private struct BlueLightStatus {
+    var active: Bool
+    var enabled: Bool
+    var sunSchedulePermitted: Bool
+    var mode: Int32
+    var from: BlueLightTime
+    var to: BlueLightTime
+    var disableFlags: UInt64
+    var available: Bool
 }
 
 /// Carries a value across a `@Sendable` boundary the compiler cannot verify.

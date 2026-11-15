@@ -95,6 +95,7 @@ targets:
       - path: Crisp/Models/GainRamp.swift
       - path: Crisp/Models/NightShiftTemperatureController.swift
       - path: Crisp/Models/NightShiftPresetTrigger.swift
+      - path: Crisp/Models/NightShiftSchedule.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.crisp.tests
