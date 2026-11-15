@@ -168,6 +168,8 @@ struct DetailTailBlock: View {
 
             LoudnessNormalizationView(display: display)
 
+            CombinedVolumeView(display: display)
+
             MainDisplayView(display: display)
 
             // Always last: it removes the section it's in.

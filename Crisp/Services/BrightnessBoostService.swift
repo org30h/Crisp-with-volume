@@ -211,6 +211,10 @@ final class BrightnessBoostService {
                 }
                 return false
             }
+            // Extra Brightness and a maximum brightness exclude each other.
+            if BrightnessService.shared.brightnessLimit(for: display) != nil {
+                await BrightnessService.shared.setBrightnessLimit(nil, for: display)
+            }
             UserDefaults.standard.set(true, forKey: enabledKey(uuid))
             if switchedHDRForThisAttempt != nil {
                 UserDefaults.standard.set(true, forKey: switchedHDRKey(uuid))

@@ -89,7 +89,11 @@ final class VolumeService: ObservableObject {
     /// Sets or removes (nil) the limit. A hardware level at or below the new limit
     /// is kept, with no DDC write. A level above it is lowered to the limit.
     func setVolumeLimit(_ limit: Double?, for display: DisplayInfo) {
-        let hardware = VolumeLimit.hardware(fromUser: display.volume, limit: volumeLimit(for: display))
+        let combined = isCombined(display)
+        let hardware = combined
+            ? CombinedVolume.split(user: display.volume, limit: volumeLimit(for: display),
+                                   floor: floorPercent(for: display)).hardwarePercent
+            : VolumeLimit.hardware(fromUser: display.volume, limit: volumeLimit(for: display))
         let new = VolumeLimit.clamped(limit)
         let key = Self.limitPrefix + display.displayUUID
         if let new {
@@ -103,8 +107,80 @@ final class VolumeService: ObservableObject {
         preMuteVolume.removeValue(forKey: display.displayID)
         if let new, hardware > new {
             setVolume(100, for: display)
+        } else if combined {
+            let floor = floorPercent(for: display)
+            display.volume = CombinedVolume.user(fromHardware: hardware, limit: new, floor: floor, current: display.volume)
+            pushSoftwareGain(CombinedVolume.split(user: display.volume, limit: new, floor: floor).softwareGain, for: display)
         } else {
             display.volume = VolumeLimit.user(fromHardware: hardware, limit: new)
+        }
+    }
+
+    // MARK: - Combined volume
+
+    /// Per-display Combined Volume (hardware volume plus software attenuation below the
+    /// monitor's quietest step), keyed by display UUID. Off unless stored.
+    private static let combinedPrefix = "crisp.combinedVolume.uuid."
+    @Published private var combinedDisplays: Set<String> = {
+        var found: Set<String> = []
+        for (key, value) in UserDefaults.standard.dictionaryRepresentation()
+        where key.hasPrefix(combinedPrefix) && (value as? Bool) == true {
+            found.insert(String(key.dropFirst(combinedPrefix.count)))
+        }
+        return found
+    }()
+
+    func isCombined(_ display: DisplayInfo) -> Bool {
+        combinedDisplays.contains(display.displayUUID)
+    }
+
+    /// Last user-scale level per display while Combined Volume is on. A separate prefix,
+    /// so the setting loader above never reads a level as the switch.
+    private static func combinedLevelKey(_ display: DisplayInfo) -> String {
+        "crisp.combinedVolumeLevel.uuid." + display.displayUUID
+    }
+
+    private func floorPercent(for display: DisplayInfo) -> Double {
+        CombinedVolume.floorPercent(ddcMax: ddcMax[display.displayID] ?? 100)
+    }
+
+    /// Hands the software gain for a user-scale volume to the loudness tap session.
+    private func pushSoftwareGain(_ gain: Float, for display: DisplayInfo) {
+        if #available(macOS 14.2, *) {
+            LoudnessNormalizationService.shared.setSoftwareGain(gain, for: display)
+        }
+    }
+
+    /// Turns Combined Volume on or off. The hardware level stays as it is, with no DDC write,
+    /// and the user-scale volume is recomputed for the new mapping.
+    func setCombined(_ on: Bool, for display: DisplayInfo) {
+        let was = isCombined(display)
+        guard was != on else { return }
+        let limit = volumeLimit(for: display)
+        let floor = floorPercent(for: display)
+        let hardware = was
+            ? CombinedVolume.split(user: display.volume, limit: limit, floor: floor).hardwarePercent
+            : VolumeLimit.hardware(fromUser: display.volume, limit: limit)
+        let key = Self.combinedPrefix + display.displayUUID
+        if on {
+            combinedDisplays.insert(display.displayUUID)
+            UserDefaults.standard.set(true, forKey: key)
+        } else {
+            combinedDisplays.remove(display.displayUUID)
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        // The remembered pre-mute level is on the old scale.
+        preMuteVolume.removeValue(forKey: display.displayID)
+        if on {
+            display.volume = CombinedVolume.user(fromHardware: hardware, limit: limit, floor: floor, current: 0)
+            pushSoftwareGain(
+                CombinedVolume.split(user: display.volume, limit: limit, floor: floor).softwareGain, for: display)
+        } else {
+            display.volume = VolumeLimit.user(fromHardware: hardware, limit: limit)
+            pushSoftwareGain(1, for: display)
+        }
+        if #available(macOS 14.2, *) {
+            LoudnessNormalizationService.shared.combinedChanged(for: display)
         }
     }
 
@@ -147,6 +223,18 @@ final class VolumeService: ObservableObject {
                     if VolumeLimit.exceeds(raw: result.current, ddcMax: volumeMax, limit: limit) {
                         // The monitor's own buttons went past the limit: write it back once.
                         self.setVolume(100, for: display)
+                    } else if self.isCombined(display) {
+                        let floor = self.floorPercent(for: display)
+                        // At the floor step the hardware can't tell 1 from 24, so the level comes
+                        // from the slider, or after a relaunch from the last level we stored.
+                        let current = display.volume > 0
+                            ? display.volume : UserDefaults.standard.double(forKey: Self.combinedLevelKey(display))
+                        display.volume = CombinedVolume.user(
+                            fromHardware: Double(result.current) / Double(volumeMax) * 100.0,
+                            limit: limit, floor: floor, current: current)
+                        self.pushSoftwareGain(
+                            CombinedVolume.split(user: display.volume, limit: limit, floor: floor).softwareGain,
+                            for: display)
                     } else {
                         display.volume = VolumeLimit.user(
                             fromHardware: Double(result.current) / Double(volumeMax) * 100.0, limit: limit)
@@ -168,7 +256,15 @@ final class VolumeService: ObservableObject {
     func setVolume(_ percent: Double, for display: DisplayInfo) {
         let clamped = max(0.0, min(100.0, percent))
         display.volume = clamped
-        pending[display.displayID] = VolumeLimit.hardware(fromUser: clamped, limit: volumeLimit(for: display))
+        if isCombined(display) {
+            let split = CombinedVolume.split(
+                user: clamped, limit: volumeLimit(for: display), floor: floorPercent(for: display))
+            pending[display.displayID] = split.hardwarePercent
+            pushSoftwareGain(split.softwareGain, for: display)
+            UserDefaults.standard.set(clamped, forKey: Self.combinedLevelKey(display))
+        } else {
+            pending[display.displayID] = VolumeLimit.hardware(fromUser: clamped, limit: volumeLimit(for: display))
+        }
         pump(for: display.displayID)
     }
 

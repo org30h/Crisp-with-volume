@@ -317,6 +317,38 @@
         }
       }
     },
+    "Combined Volume" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "组合音量"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "組合音量"
+          }
+        }
+      }
+    },
+    "Goes below the monitor's quietest volume step by lowering the sound on this Mac. The bottom quarter of the volume slider is software." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通过降低这台 Mac 上的声音，让音量低于显示器最低的音量档位。音量滑块的下四分之一由软件实现。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "透過降低這台 Mac 上的聲音，讓音量低於顯示器最低的音量檔位。音量滑桿的下四分之一由軟體實現。"
+          }
+        }
+      }
+    },
     "Cross Unaligned Edges" : {
       "localizations" : {
         "zh-Hans" : {
@@ -4618,6 +4650,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "請輸入 1 到 100 之間的整數。"
+          }
+        }
+      }
+    },
+    "Maximum Brightness" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最大亮度"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最大亮度"
+          }
+        }
+      }
+    },
+    "Current Brightness (%lld%%)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前亮度（%lld%%）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目前亮度（%lld%%）"
+          }
+        }
+      }
+    },
+    "Brightness limited to %lld%%" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "亮度上限为 %lld%%"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "亮度上限為 %lld%%"
+          }
+        }
+      }
+    },
+    "The highest brightness Crisp may set on this display, as a percent of its full brightness (1 to 100)." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crisp 在此显示器上可设置的最高亮度，以其最大亮度的百分比表示（1 到 100）。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crisp 在此顯示器上可設定的最高亮度，以其最大亮度的百分比表示（1 到 100）。"
           }
         }
       }

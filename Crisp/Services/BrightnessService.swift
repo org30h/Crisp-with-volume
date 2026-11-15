@@ -77,9 +77,11 @@ private func _crispNativeBrightnessChanged(
         guard let display = DisplayManagerAccessor.shared.displays.first(where: { $0.displayID == did })
         else { return }
         guard display.brightness <= 100.0 else { return }
+        // Same hardware-to-user mapping as the slider refresh (a no-op without a limit).
+        let user = BrightnessService.shared.userPercent(fromNative: value, for: display)
         // Skip sub-0.5% jitter to avoid redundant @Published churn.
-        guard abs(display.brightness - value) >= 0.5 else { return }
-        display.brightness = value
+        guard abs(display.brightness - user) >= 0.5 else { return }
+        display.brightness = user
         // Drive auto-brightness off this live change so externals follow the
         // built-in immediately instead of trailing its poll (issue #12).
         guard display.isBuiltin else { return }
@@ -171,7 +173,7 @@ final class BrightnessAnimator: @unchecked Sendable {
 
 // MARK: - BrightnessService
 
-final class BrightnessService: @unchecked Sendable {
+final class BrightnessService: ObservableObject, @unchecked Sendable {
     static let shared = BrightnessService()
     private init() {}
 
@@ -316,7 +318,8 @@ final class BrightnessService: @unchecked Sendable {
                     continuation.resume(returning: self?.nativeBrightness(for: displayID))
                 }
             }
-            if let b = brightness {
+            if let hardwareValue = brightness {
+                let b = userPercent(fromNative: hardwareValue, for: display)
                 // macOS already moved the backlight; only the displayed value
                 // needs to catch up. Glide it (no hardware write) so the knob
                 // doesn't jump; sub-0.5% moves are imperceptible, just set them.
@@ -367,17 +370,8 @@ final class BrightnessService: @unchecked Sendable {
                         Self.log.notice("display \(displayID, privacy: .public): DDC brightness read ok \(result.current, privacy: .public)/\(result.max, privacy: .public), brightness over DDC")
                     }
                     Task { @MainActor in
-                        // DDC reads quantize, so a value we just set can read
-                        // back slightly off. Adopt the read only on first seed
-                        // or a large enough change to be a real external move.
-                        self.ddcPumpLock.withLock {
-                            guard self.ddcOperationGeneration.isLatestRequest(
-                                readToken, for: displayID
-                            ) else { return }
-                            if firstRead || abs(brightness - display.brightness) > 3.0 {
-                                display.brightness = brightness
-                            }
-                        }
+                        await self.adoptDDCReading(
+                            result, percent: brightness, firstRead: firstRead, token: readToken, for: display)
                     }
                 }
                 // A failed/ignored read does NOT mean DDC is unavailable: many
@@ -408,8 +402,9 @@ final class BrightnessService: @unchecked Sendable {
     @MainActor
     func setBrightness(_ brightness: Double, for display: DisplayInfo, isAutoAdjust: Bool = false) async {
         let clamped = max(0.0, min(display.maxBrightness, brightness))
-        // Hardware only ever sees 0...100; the region above is the EDR overlay's.
-        let hardware = min(clamped, 100.0)
+        // Hardware only ever sees 0...100 (the region above is the EDR overlay's),
+        // scaled into the allowed range when a limit is set.
+        let hardware = hardwarePercent(min(clamped, 100.0), for: display)
         let isBuiltin = display.isBuiltin
         let displayID = display.displayID
 
@@ -814,7 +809,7 @@ final class BrightnessService: @unchecked Sendable {
             anim.animate(from: fromBrightness, to: clamped, steps: smoothSteps, duration: duration) { [weak self, weak display] value, _ in
                 guard let self, let display else { return }
                 display.brightness = value
-                let floatVal = Float(min(value, 100.0) / 100.0)
+                let floatVal = Float(self.hardwarePercent(min(value, 100.0), for: display) / 100.0)
                 self.queue.async { self.setNativeBrightness(floatVal, for: displayID) }
                 BrightnessBoostService.shared.syncOverlay(for: display)
             }
@@ -831,7 +826,7 @@ final class BrightnessService: @unchecked Sendable {
                     display.brightness = value
                     // Above 100 the boost sync owns the transfer table (see setBrightness).
                     if value <= 100 {
-                        self.applyLatestSoftwareBrightness(value, for: displayID)
+                        self.applyLatestSoftwareBrightness(self.hardwarePercent(value, for: display), for: displayID)
                     }
                     BrightnessBoostService.shared.syncOverlay(for: display)
                 }
@@ -844,7 +839,7 @@ final class BrightnessService: @unchecked Sendable {
                     display.brightness = value
                     // Above 100 the boost sync owns the transfer table (see setBrightness).
                     if value <= 100 {
-                        self.writeDDCBrightnessCoalesced(percent: value, for: displayID)
+                        self.writeDDCBrightnessCoalesced(percent: self.hardwarePercent(value, for: display), for: displayID)
                     }
                     BrightnessBoostService.shared.syncOverlay(for: display)
                 }
@@ -1167,6 +1162,114 @@ extension BrightnessService {
             setInternalBrightness(value)
         } else {
             _ = _DSSetBrightness?(displayID, value)
+        }
+    }
+}
+
+// MARK: - Maximum brightness
+
+extension BrightnessService {
+    private static let limitPrefix = "crisp.brightnessLimit.uuid."
+
+    /// Per-display maximum brightness (percent of the monitor's hardware range, external
+    /// displays only), keyed by display UUID. Absent means no limit. display.brightness
+    /// stays on a 0-100 "user" scale meaning percent of the allowed range: hardwarePercent
+    /// maps it down where a value leaves for the hardware, userPercent maps a hardware
+    /// readback back up. The view observes this service so its tooltip and menu follow.
+    @MainActor private static var limits: [String: Double] = {
+        var found: [String: Double] = [:]
+        for (key, value) in UserDefaults.standard.dictionaryRepresentation() where key.hasPrefix(limitPrefix) {
+            if let limit = VolumeLimit.clamped(value as? Double) {
+                found[String(key.dropFirst(limitPrefix.count))] = limit
+            }
+        }
+        return found
+    }()
+
+    @MainActor
+    func brightnessLimit(for display: DisplayInfo) -> Double? {
+        guard !Self.limits.isEmpty, !display.isBuiltin else { return nil }
+        return Self.limits[display.displayUUID]
+    }
+
+    /// Applies a DDC brightness reading (`percent` = raw/max, hardware scale) to the display.
+    /// DDC reads quantize, so a value we just set can read back slightly off: adopt the read
+    /// only on first seed or a large enough change to be a real external move. A raw value
+    /// above the limit means the monitor's own buttons went past it: write the limit back once.
+    @MainActor
+    fileprivate func adoptDDCReading(
+        _ result: (current: UInt16, max: UInt16), percent: Double, firstRead: Bool,
+        token: DDCOperationGeneration.Token, for display: DisplayInfo
+    ) async {
+        let limit = brightnessLimit(for: display)
+        var overLimit = false
+        ddcPumpLock.withLock {
+            guard ddcOperationGeneration.isLatestRequest(token, for: display.displayID) else { return }
+            if VolumeLimit.exceeds(raw: result.current, ddcMax: result.max, limit: limit) {
+                overLimit = true
+                return
+            }
+            let user = VolumeLimit.user(fromHardware: percent, limit: limit)
+            if firstRead || abs(user - display.brightness) > 3.0 { display.brightness = user }
+        }
+        // Outside the lock: the write takes it too.
+        if overLimit { await setBrightness(100, for: display, isAutoAdjust: true) }
+    }
+
+    /// Hardware percent for a user-scale value (0...100) about to be written.
+    @MainActor
+    private func hardwarePercent(_ user: Double, for display: DisplayInfo) -> Double {
+        VolumeLimit.hardware(fromUser: user, limit: brightnessLimit(for: display))
+    }
+
+    /// User-scale value for a hardware percent read from a native panel (macOS-driven
+    /// brightness, no raw DDC steps to compare). A reading above the limit means the
+    /// monitor's own buttons went past it: write the limit back once and show 100.
+    @MainActor
+    fileprivate func userPercent(fromNative hardware: Double, for display: DisplayInfo) -> Double {
+        guard let limit = brightnessLimit(for: display) else { return hardware }
+        if hardware > limit + 0.5 {
+            Task { @MainActor in await self.setBrightness(100, for: display, isAutoAdjust: true) }
+            return 100
+        }
+        return VolumeLimit.user(fromHardware: hardware, limit: limit)
+    }
+
+    /// Sets or removes (nil) the limit. A hardware level at or below the new limit is
+    /// kept, with no write. A level above it is lowered to the limit. Extra Brightness
+    /// and a limit exclude each other: a limit turns it off first, and turning it on
+    /// clears the limit (BrightnessBoostService.setEnabled).
+    @MainActor
+    func setBrightnessLimit(_ limit: Double?, for display: DisplayInfo) async {
+        guard !display.isBuiltin else { return }
+        let new = VolumeLimit.clamped(limit)
+        if new != nil {
+            if BrightnessBoostService.shared.isEnabled(for: display) {
+                await BrightnessBoostService.shared.setEnabled(false, for: display)
+            }
+            // The disable collapses brightness and range over ~0.35s; wait it out so the
+            // level below is a hardware level (at most 100).
+            var waits = 0
+            while display.maxBrightness > 100.0, waits < 30 {
+                try? await Task.sleep(nanoseconds: 50_000_000)
+                waits += 1
+            }
+        }
+        cancelAnimation(for: display.displayID)
+        let hardware = hardwarePercent(min(display.brightness, 100.0), for: display)
+        let key = Self.limitPrefix + display.displayUUID
+        objectWillChange.send()
+        if let new {
+            Self.limits[display.displayUUID] = new
+            UserDefaults.standard.set(new, forKey: key)
+        } else {
+            Self.limits.removeValue(forKey: display.displayUUID)
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        if let new, hardware > new {
+            await setBrightness(100, for: display)
+        } else {
+            display.brightness = VolumeLimit.user(fromHardware: hardware, limit: new)
         }
     }
 }

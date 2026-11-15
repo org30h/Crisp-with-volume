@@ -17,6 +17,7 @@ final class LoudnessTapEngine: @unchecked Sendable {
     struct Meters {
         var inputDB: Float
         var gainDB: Float
+        var softwareDB: Float
         var consecutiveZeroSeconds: Double
         var sawSignal: Bool
     }
@@ -30,6 +31,11 @@ final class LoudnessTapEngine: @unchecked Sendable {
     let device: DisplayAudioDevice
     /// Called once, on a CoreAudio queue, with the reason, when the session can no longer be trusted.
     var onInvalidated: (@Sendable (String) -> Void)?
+
+    /// Latest values from the owner. `start()` hands them to the processor before it runs, so the
+    /// first buffer is already right. Set before `start()`; later changes go through `apply`.
+    var softwareGain: Float = 1
+    var levelingEnabled = true
 
     private var processor: LoudnessIOProcessor?
     private var aggregate = AudioObjectID(kAudioObjectUnknown)
@@ -110,7 +116,8 @@ final class LoudnessTapEngine: @unchecked Sendable {
         step = "aggregate format"
         let layout = try Self.validateAggregate(aggregate)
         processor = LoudnessIOProcessor(channelCount: layout.channels, sampleRate: layout.sampleRate,
-                                        inputPlanar: layout.inputPlanar, outputPlanar: layout.outputPlanar)
+                                        inputPlanar: layout.inputPlanar, outputPlanar: layout.outputPlanar,
+                                        softwareGain: softwareGain, levelingEnabled: levelingEnabled)
 
         step = "watch output route and format"
         try installListeners(tap: tap)
@@ -248,9 +255,20 @@ final class LoudnessTapEngine: @unchecked Sendable {
     var channelCount: Int { processor?.channelCount ?? 0 }
     var sampleRate: Double { processor?.sampleRate ?? 0 }
 
+    /// Pushes new settings to the running processor. Call only once `start()` has returned.
+    func apply(softwareGain: Float, levelingEnabled: Bool) {
+        self.softwareGain = softwareGain
+        self.levelingEnabled = levelingEnabled
+        processor?.softwareGain = softwareGain
+        processor?.levelingEnabled = levelingEnabled
+    }
+
     func meters() -> Meters {
-        guard let processor else { return Meters(inputDB: -120, gainDB: 0, consecutiveZeroSeconds: 0, sawSignal: false) }
+        guard let processor else {
+            return Meters(inputDB: -120, gainDB: 0, softwareDB: 0, consecutiveZeroSeconds: 0, sawSignal: false)
+        }
         return Meters(inputDB: processor.leveler.inputLevelDB, gainDB: processor.leveler.gainDB,
+                      softwareDB: 20 * log10(max(processor.appliedGain, 1e-6)),
                       consecutiveZeroSeconds: Double(processor.consecutiveZeroFrames) / processor.sampleRate,
                       sawSignal: processor.sawSignal)
     }

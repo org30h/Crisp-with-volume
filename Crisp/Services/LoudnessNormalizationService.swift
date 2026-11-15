@@ -31,6 +31,8 @@ final class LoudnessNormalizationService: ObservableObject {
     @Published private(set) var permissionLikelyDenied = false
 
     private var displayAudioDevices: [DisplayAudioDevice] = []
+    /// Latest linear software volume gain per display UUID, from Combined Volume. Absent means 1.
+    private var softwareGains: [String: Float] = [:]
     private var engine: LoudnessTapEngine?
     private var sessionDisplayUUID: String?
     /// `engine.start()` is running on a background thread: the first start can wait on the
@@ -62,6 +64,33 @@ final class LoudnessNormalizationService: ObservableObject {
 
     func isEnabled(_ display: DisplayInfo) -> Bool {
         UserDefaults.standard.bool(forKey: key(display))
+    }
+
+    /// The session runs for normalization or for Combined Volume's software gain. Leveling is
+    /// applied only when normalization itself is on.
+    private func needsTap(_ display: DisplayInfo) -> Bool {
+        isEnabled(display) || VolumeService.shared.isCombined(display)
+    }
+
+    /// Sets the software volume gain for a display and applies it to the running session.
+    func setSoftwareGain(_ gain: Float, for display: DisplayInfo) {
+        softwareGains[display.displayUUID] = gain
+        applySettingsToSession()
+    }
+
+    /// Combined Volume was turned on or off for a display: start or stop the session to match.
+    func combinedChanged(for display: DisplayInfo) {
+        revision += 1
+        stormBlocked = false
+        reevaluate("combined volume changed")
+    }
+
+    /// Hands the current gain and leveling flag to the running session. Skipped while a start is
+    /// running: `sessionStartFinished` applies them once it returns.
+    private func applySettingsToSession() {
+        guard !starting, let engine, let uuid = sessionDisplayUUID else { return }
+        engine.apply(softwareGain: softwareGains[uuid] ?? 1,
+                     levelingEnabled: UserDefaults.standard.bool(forKey: Self.defaultsPrefix + uuid))
     }
 
     func setEnabled(_ on: Bool, for display: DisplayInfo) {
@@ -182,7 +211,7 @@ final class LoudnessNormalizationService: ObservableObject {
     /// The display and device that should be normalized right now, if any.
     private func desiredTarget() -> (display: DisplayInfo, device: DisplayAudioDevice)? {
         guard let output = AudioDevices.defaultOutputDevice() else { return nil }
-        for display in DisplayManagerAccessor.shared.displays where isEnabled(display) && display.isOnline {
+        for display in DisplayManagerAccessor.shared.displays where needsTap(display) && display.isOnline {
             if let device = audioDevice(for: display), device.id == output { return (display, device) }
         }
         return nil
@@ -194,9 +223,10 @@ final class LoudnessNormalizationService: ObservableObject {
         if let engine {
             if let target, target.device == engine.device, target.display.displayUUID == sessionDisplayUUID,
                engine.isHealthy() {
+                applySettingsToSession()
                 return
             }
-            stopSession(target == nil ? "no enabled display on the default output" : "route changed (\(reason))")
+            stopSession(target == nil ? "no display on the default output needs the tap" : "route changed (\(reason))")
         }
         guard let target, !stormBlocked else { return }
         if let retiring {
@@ -219,6 +249,8 @@ final class LoudnessNormalizationService: ObservableObject {
 
     private func startSession(_ display: DisplayInfo, _ device: DisplayAudioDevice, reason: String) {
         let engine = LoudnessTapEngine(device: device)
+        engine.softwareGain = softwareGains[display.displayUUID] ?? 1
+        engine.levelingEnabled = isEnabled(display)
         engine.onInvalidated = { reason in
             Task { @MainActor in Self.shared.engineInvalidated(engine, reason: reason) }
         }
@@ -254,6 +286,7 @@ final class LoudnessNormalizationService: ObservableObject {
             reevaluate("start was cancelled", after: 0.5)
             return
         }
+        applySettingsToSession()
         zeroSecondsWithPlayback = 0
         permissionLikelyDenied = false
         activeDisplayUUID = uuid
@@ -327,6 +360,7 @@ final class LoudnessNormalizationService: ObservableObject {
         Self.log.notice("""
             loudness input \(String(format: "%.1f", m.inputDB), privacy: .public) dBFS, \
             gain \(String(format: "%+.1f", m.gainDB), privacy: .public) dB, \
+            software \(String(format: "%+.1f", m.softwareDB), privacy: .public) dB, \
             zero-run \(String(format: "%.1f", m.consecutiveZeroSeconds), privacy: .public) s
             """)
         if m.sawSignal {

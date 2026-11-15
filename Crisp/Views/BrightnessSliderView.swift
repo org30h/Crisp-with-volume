@@ -59,6 +59,7 @@ private struct HoldRepeatButtonStyle: ButtonStyle {
 
 struct BrightnessSliderView: View {
     @ObservedObject var display: DisplayInfo
+    @ObservedObject private var brightnessService = BrightnessService.shared
     var compact: Bool = false  // Compact mode: hides the mode label row (used for top-level inline sliders)
     @State private var localBrightness: Double = 50
     @State private var isDragging: Bool = false
@@ -193,6 +194,10 @@ struct BrightnessSliderView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 4)
+            .help(activeLimit.map { Text("Brightness limited to \(Int($0.rounded()))%") } ?? Text(""))
+            .contextMenu {
+                if !display.isBuiltin { BrightnessLimitMenu(display: display) }
+            }
         }
         .task(id: display.displayID) {
             localBrightness = display.brightness
@@ -238,6 +243,8 @@ struct BrightnessSliderView: View {
                 .blended(withFraction: fraction, of: .systemYellow) ?? .controlAccentColor)
         }
     }
+
+    private var activeLimit: Double? { brightnessService.brightnessLimit(for: display) }
 
     private func updateDDCStatus() {
         ddcStatus = BrightnessService.shared.isDDCAvailable(for: display.displayID)

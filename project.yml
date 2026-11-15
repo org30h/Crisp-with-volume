@@ -91,6 +91,8 @@ targets:
       - path: Crisp/Models/EdgeCrossing.swift
       - path: Crisp/Models/DDCInputSource.swift
       - path: Crisp/Models/LoudnessLeveler.swift
+      - path: Crisp/Models/CombinedVolume.swift
+      - path: Crisp/Models/GainRamp.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.crisp.tests
