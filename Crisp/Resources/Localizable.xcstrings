@@ -333,6 +333,22 @@
         }
       }
     },
+    "Crisp needs System Audio Recording to examine the audio first." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crisp 需要“系统录音”权限来先分析音频。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crisp 需要「系統錄音」權限來先分析音訊。"
+          }
+        }
+      }
+    },
     "Goes below the monitor's quietest volume step by lowering the sound on this Mac. The bottom quarter of the volume slider is software." : {
       "localizations" : {
         "zh-Hans" : {
@@ -365,22 +381,6 @@
         }
       }
     },
-    "Evens out loud and quiet parts on this monitor's speakers. Audio is processed on this Mac only." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "均衡此显示器扬声器的大声和小声部分。音频仅在这台 Mac 上处理。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "均衡此顯示器喇叭的大聲和小聲部分。音訊僅在這台 Mac 上處理。"
-          }
-        }
-      }
-    },
     "Input" : {
       "localizations" : {
         "zh-Hans" : {
@@ -409,6 +409,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "輸入來源 %@"
+          }
+        }
+      }
+    },
+    "Keeps the volume even across sound sources on this monitor's speakers, so a loud ad, a quiet video and different apps all play at a similar level. Needs the System Audio Recording permission, because Crisp has to examine the audio first to even out its loudness. Audio is processed on this Mac only, never recorded or sent anywhere." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让这台显示器扬声器上不同声音来源的音量保持一致，很响的广告、很轻的视频和不同的 App 都会以相近的音量播放。需要“系统录音”权限，因为 Crisp 要先分析音频，才能均衡响度。音频只在这台 Mac 上处理，不会被录下或发送到任何地方。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "讓這台顯示器喇叭上不同聲音來源的音量保持一致，很響的廣告、很小聲的影片和不同的 App 都會以相近的音量播放。需要「系統錄音」權限，因為 Crisp 要先分析音訊，才能均衡響度。音訊只在這台 Mac 上處理，不會被錄下或傳送到任何地方。"
           }
         }
       }
@@ -457,6 +473,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Crisp 沒有收到聲音。請在「系統設定」>「隱私權與安全性」>「螢幕與系統音訊錄製」>「僅系統音訊錄製」中允許 Crisp。"
+          }
+        }
+      }
+    },
+    "Open Settings" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开设置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打開設定"
           }
         }
       }
