@@ -1019,18 +1019,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 // MARK: - Panel window
 
 extension AppDelegate {
-    /// The Night Shift warmth slider; empty when CoreBrightness exposes no strength.
-    /// Shown only while the setting is on and Night Shift is on.
-    private func nightShiftTemperatureBlocks() -> [PanelBlock] {
-        guard let temperature = CoreBrightnessService.shared.nightShiftTemperature else { return [] }
-        let id = "nightShiftTemperature"
-        return [PanelBlock(id: id, host: hostPanelBlock(id) { NightShiftTemperatureView(temperature: temperature) },
-                           isOpen: {
-                               SettingsService.shared.showNightShiftTemperature
-                                   && CoreBrightnessService.shared.nightShiftEnabled
-                           })]
-    }
-
     private func hostPanelBlock<V: View>(_ id: String, @ViewBuilder _ content: () -> V) -> NSView {
         let h = CountedHostingView(rootView: AnyView(
             BlockHost(onHeight: { [weak self] h in self?.canvas.contentChanged(id, height: h) }) {
@@ -1042,6 +1030,18 @@ extension AppDelegate {
         // inset, misplacing clicks. See docs/panel-resize.md (failure map #9).
         h.safeAreaRegions = []
         return h
+    }
+
+    /// The Night Shift warmth slider; empty when CoreBrightness exposes no strength.
+    /// Shown only while the setting is on and Night Shift is on.
+    private func nightShiftTemperatureBlocks() -> [PanelBlock] {
+        guard let temperature = CoreBrightnessService.shared.nightShiftTemperature else { return [] }
+        let id = "nightShiftTemperature"
+        return [PanelBlock(id: id, host: hostPanelBlock(id) { NightShiftTemperatureView(temperature: temperature) },
+                           isOpen: {
+                               SettingsService.shared.showNightShiftTemperature
+                                   && CoreBrightnessService.shared.nightShiftEnabled
+                           })]
     }
 
     private func makePanel() -> MenuPanel {

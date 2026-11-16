@@ -88,14 +88,14 @@ targets:
       - path: Crisp/Models/ScreenCount.swift
       - path: Crisp/Models/DDCVolumeMax.swift
       - path: Crisp/Models/VolumeLimit.swift
-      - path: Crisp/Models/EdgeCrossing.swift
-      - path: Crisp/Models/DDCInputSource.swift
       - path: Crisp/Models/LoudnessLeveler.swift
       - path: Crisp/Models/CombinedVolume.swift
       - path: Crisp/Models/GainRamp.swift
       - path: Crisp/Models/NightShiftTemperatureController.swift
       - path: Crisp/Models/NightShiftPresetTrigger.swift
       - path: Crisp/Models/NightShiftSchedule.swift
+      - path: Crisp/Models/EdgeCrossing.swift
+      - path: Crisp/Models/DDCInputSource.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.crisp.tests
